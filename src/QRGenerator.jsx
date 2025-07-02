@@ -657,11 +657,6 @@ const QRGenerator = () => {
                 label: '📶 WiFi Network', 
                 example: 'WIFI:T:WPA;S:YourNetworkName;P:YourPassword;;',
                 description: 'Instant WiFi connection'
-              },
-              { 
-                label: '📍 Location', 
-                example: 'geo:40.7128,-74.0060?q=New York City',
-                description: 'GPS coordinates'
               }
             ].map((item, index) => (
               <button
