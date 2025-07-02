@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import QRCode from 'qrcode';
+import { getAvailableLanguages, getTranslations, DEFAULT_LANGUAGE } from './languages.js';
+
 
 const QRGenerator = () => {
   const [content, setContent] = useState('');
@@ -13,10 +15,17 @@ const QRGenerator = () => {
   const [logoOpacity, setLogoOpacity] = useState(1);
   const [notification, setNotification] = useState('');
   const [isMobile, setIsMobile] = useState(false);
-  const [activeSection, setActiveSection] = useState('content'); // For mobile tabs
+  const [activeSection, setActiveSection] = useState('content');
+  const [currentLanguage, setCurrentLanguage] = useState(DEFAULT_LANGUAGE);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+  const languageDropdownRef = useRef(null);
+
+  // Get current translations
+  const t = getTranslations(currentLanguage);
+  const availableLanguages = getAvailableLanguages();
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -27,6 +36,18 @@ const QRGenerator = () => {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close language dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (languageDropdownRef.current && !languageDropdownRef.current.contains(event.target)) {
+        setShowLanguageDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Show notification
@@ -79,14 +100,14 @@ const QRGenerator = () => {
         };
         
         logoImg.onerror = () => {
-          showNotification('Error loading logo image', 'error');
+          showNotification(t.errorLoadingLogo, 'error');
         };
         
         logoImg.src = logoFile;
       }
     } catch (err) {
       console.error('QR generation error:', err);
-      showNotification('Error generating QR code', 'error');
+      showNotification(t.errorGeneratingQR, 'error');
     }
   };
 
@@ -100,9 +121,9 @@ const QRGenerator = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      showNotification('QR code downloaded successfully!');
+      showNotification(t.qrDownloadSuccess);
     } catch (error) {
-      showNotification('Error downloading QR code', 'error');
+      showNotification(t.errorDownloadingQR, 'error');
     }
   };
 
@@ -111,12 +132,12 @@ const QRGenerator = () => {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      showNotification('Logo file too large. Please use a file under 5MB.', 'error');
+      showNotification(t.logoTooLarge, 'error');
       return;
     }
 
     if (!file.type.startsWith('image/')) {
-      showNotification('Please select a valid image file.', 'error');
+      showNotification(t.invalidImageFile, 'error');
       return;
     }
 
@@ -124,10 +145,10 @@ const QRGenerator = () => {
     reader.onload = (e) => {
       setLogoFile(e.target.result);
       setShowLogo(true);
-      showNotification('Logo uploaded successfully!');
+      showNotification(t.logoUploadSuccess);
     };
     reader.onerror = () => {
-      showNotification('Error reading logo file', 'error');
+      showNotification(t.errorReadingLogo, 'error');
     };
     reader.readAsDataURL(file);
   };
@@ -138,7 +159,12 @@ const QRGenerator = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    showNotification('Logo removed');
+    showNotification(t.logoRemoved);
+  };
+
+  const changeLanguage = (languageCode) => {
+    setCurrentLanguage(languageCode);
+    setShowLanguageDropdown(false);
   };
 
   useEffect(() => {
@@ -157,12 +183,29 @@ const QRGenerator = () => {
     }
   }, []);
 
+  // Get quick examples based on current language
+  const getQuickExamples = () => [
+    { label: t.website, example: t.exampleWebsite.example },
+    { label: t.email, example: t.exampleEmail.example },
+    { label: t.phone, example: t.examplePhone.example },
+    { label: t.wifi, example: t.exampleWiFi.example }
+  ];
+
+  const getDetailedExamples = () => [
+    t.exampleWebsite,
+    t.exampleEmail,
+    t.examplePhone,
+    t.exampleSMS,
+    t.exampleWiFi
+  ];
+
   // Responsive styles
   const containerStyle = {
     minHeight: '100vh',
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     padding: isMobile ? '10px' : '20px',
-    fontFamily: 'Arial, sans-serif'
+    fontFamily: 'Arial, sans-serif',
+    position: 'relative'
   };
 
   const headerStyle = {
@@ -240,13 +283,96 @@ const QRGenerator = () => {
     borderBottomColor: '#667eea'
   };
 
+  // Language selector styles
+  const languageSelectorStyle = {
+    position: 'absolute',
+    top: isMobile ? '15px' : '20px',
+    right: isMobile ? '15px' : '20px',
+    zIndex: 1000
+  };
+
+  const languageButtonStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: isMobile ? '8px 12px' : '10px 15px',
+    background: 'rgba(255,255,255,0.9)',
+    border: 'none',
+    borderRadius: '25px',
+    cursor: 'pointer',
+    fontSize: isMobile ? '12px' : '14px',
+    fontWeight: 'bold',
+    color: '#333',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    transition: 'all 0.3s ease'
+  };
+
+  const dropdownStyle = {
+    position: 'absolute',
+    top: '100%',
+    right: '0',
+    marginTop: '5px',
+    background: 'white',
+    borderRadius: '10px',
+    boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
+    overflow: 'hidden',
+    minWidth: '150px',
+    zIndex: 1001
+  };
+
+  const dropdownItemStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '12px 15px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    borderBottom: '1px solid #f0f0f0',
+    transition: 'background-color 0.2s ease',
+    background: 'transparent',
+    border: 'none',
+    width: '100%',
+    textAlign: 'left'
+  };
+
   return (
     <div style={containerStyle}>
+      {/* Language Selector */}
+      <div style={languageSelectorStyle} ref={languageDropdownRef}>
+        <button
+          style={languageButtonStyle}
+          onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+          onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,1)'}
+          onMouseOut={(e) => e.target.style.background = 'rgba(255,255,255,0.9)'}
+        >
+          <span>{availableLanguages.find(lang => lang.code === currentLanguage)?.flag}</span>
+          <span>{availableLanguages.find(lang => lang.code === currentLanguage)?.name}</span>
+          <span style={{ fontSize: '10px' }}>▼</span>
+        </button>
+        
+        {showLanguageDropdown && (
+          <div style={dropdownStyle}>
+            {availableLanguages.map((language) => (
+              <button
+                key={language.code}
+                style={dropdownItemStyle}
+                onClick={() => changeLanguage(language.code)}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                <span>{language.flag}</span>
+                <span>{language.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Notification */}
       {notification && (
         <div style={{
           position: 'fixed',
-          top: isMobile ? '10px' : '20px',
+          top: isMobile ? '70px' : '80px',
           right: isMobile ? '10px' : '20px',
           left: isMobile ? '10px' : 'auto',
           zIndex: 1000,
@@ -263,7 +389,7 @@ const QRGenerator = () => {
         </div>
       )}
 
-      <h1 style={headerStyle}>🎯 QR Generator Pro</h1>
+      <h1 style={headerStyle}>{t.title}</h1>
       <p style={{ 
         textAlign: 'center', 
         color: 'rgba(255,255,255,0.9)', 
@@ -271,7 +397,7 @@ const QRGenerator = () => {
         marginBottom: isMobile ? '30px' : '40px',
         padding: isMobile ? '0 20px' : '0'
       }}>
-        Professional QR Code Generator {!isMobile && 'with Logo Support'}
+        {isMobile ? t.subtitle : t.subtitleMobile}
       </p>
 
       <div style={gridStyle}>
@@ -289,19 +415,19 @@ const QRGenerator = () => {
                 style={activeSection === 'content' ? activeTabStyle : tabButtonStyle}
                 onClick={() => setActiveSection('content')}
               >
-                Content
+                {t.content}
               </button>
               <button
                 style={activeSection === 'design' ? activeTabStyle : tabButtonStyle}
                 onClick={() => setActiveSection('design')}
               >
-                Design
+                {t.design}
               </button>
               <button
                 style={activeSection === 'logo' ? activeTabStyle : tabButtonStyle}
                 onClick={() => setActiveSection('logo')}
               >
-                Logo
+                {t.logo}
               </button>
             </div>
           )}
@@ -312,18 +438,18 @@ const QRGenerator = () => {
             marginBottom: isMobile ? '20px' : '30px',
             fontSize: isMobile ? '1.3rem' : '1.5rem'
           }}>
-            {isMobile ? `${activeSection.charAt(0).toUpperCase() + activeSection.slice(1)} Settings` : 'Customize Your QR Code'}
+            {isMobile ? `${activeSection.charAt(0).toUpperCase() + activeSection.slice(1)} ${t[activeSection + 'Settings'] || 'Settings'}` : t.customizeTitle}
           </h2>
           
           {/* Content Section */}
           {(!isMobile || activeSection === 'content') && (
             <>
               <div style={{ marginBottom: isMobile ? '20px' : '25px' }}>
-                <label style={labelStyle}>Content *</label>
+                <label style={labelStyle}>{t.contentLabel}</label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Enter URL, text, phone number, email, or any content..."
+                  placeholder={t.contentPlaceholder}
                   style={{ 
                     ...inputStyle, 
                     height: isMobile ? '80px' : '100px', 
@@ -331,21 +457,16 @@ const QRGenerator = () => {
                   }}
                 />
                 <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-                  {content.length} characters
+                  {content.length} {t.charactersCount}
                 </p>
               </div>
 
               {/* Quick Examples for Mobile */}
               {isMobile && (
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={labelStyle}>Quick Examples</label>
+                  <label style={labelStyle}>{t.quickExamples}</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    {[
-                      { label: '🌐 Website', example: 'https://example.com' },
-                      { label: '📧 Email', example: 'mailto:hello@example.com' },
-                      { label: '📞 Phone', example: 'tel:+1234567890' },
-                      { label: '📶 WiFi', example: 'WIFI:T:WPA;S:Network;P:Password;;' }
-                    ].map((item, index) => (
+                    {getQuickExamples().map((item, index) => (
                       <button
                         key={index}
                         onClick={() => setContent(item.example)}
@@ -372,7 +493,7 @@ const QRGenerator = () => {
           {(!isMobile || activeSection === 'design') && (
             <>
               <div style={{ marginBottom: isMobile ? '20px' : '25px' }}>
-                <label style={labelStyle}>QR Code Size: {size}px</label>
+                <label style={labelStyle}>{t.qrCodeSize}: {size}px</label>
                 <input
                   type="range"
                   min="200"
@@ -390,7 +511,7 @@ const QRGenerator = () => {
                 marginBottom: isMobile ? '20px' : '25px' 
               }}>
                 <div>
-                  <label style={labelStyle}>Dark Color</label>
+                  <label style={labelStyle}>{t.darkColor}</label>
                   <input
                     type="color"
                     value={darkColor}
@@ -405,7 +526,7 @@ const QRGenerator = () => {
                   />
                 </div>
                 <div>
-                  <label style={labelStyle}>Light Color</label>
+                  <label style={labelStyle}>{t.lightColor}</label>
                   <input
                     type="color"
                     value={lightColor}
@@ -437,11 +558,11 @@ const QRGenerator = () => {
                 color: '#333',
                 fontSize: isMobile ? '1.1rem' : '1.2rem'
               }}>
-                🖼️ Logo Options
+                {t.logoOptions}
               </h3>
               
               <div style={{ marginBottom: '15px' }}>
-                <label style={labelStyle}>Upload Logo</label>
+                <label style={labelStyle}>{t.uploadLogo}</label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -450,7 +571,7 @@ const QRGenerator = () => {
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 />
                 <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-                  PNG, JPG, GIF, SVG (max 5MB)
+                  {t.logoFileInfo}
                 </p>
               </div>
 
@@ -477,7 +598,7 @@ const QRGenerator = () => {
                     marginBottom: '15px' 
                   }}>
                     <div>
-                      <label style={labelStyle}>Size: {logoSize}px</label>
+                      <label style={labelStyle}>{t.logoSize}: {logoSize}px</label>
                       <input
                         type="range"
                         min="30"
@@ -488,7 +609,7 @@ const QRGenerator = () => {
                       />
                     </div>
                     <div>
-                      <label style={labelStyle}>Opacity: {Math.round(logoOpacity * 100)}%</label>
+                      <label style={labelStyle}>{t.logoOpacity}: {Math.round(logoOpacity * 100)}%</label>
                       <input
                         type="range"
                         min="0.1"
@@ -502,14 +623,14 @@ const QRGenerator = () => {
                   </div>
 
                   <div style={{ marginBottom: '15px' }}>
-                    <label style={labelStyle}>Logo Style</label>
+                    <label style={labelStyle}>{t.logoStyle}</label>
                     <select
                       value={logoStyle}
                       onChange={(e) => setLogoStyle(e.target.value)}
                       style={inputStyle}
                     >
-                      <option value="circular">Circular</option>
-                      <option value="square">Square</option>
+                      <option value="circular">{t.circular}</option>
+                      <option value="square">{t.square}</option>
                     </select>
                   </div>
 
@@ -522,7 +643,7 @@ const QRGenerator = () => {
                       width: '100%'
                     }}
                   >
-                    🗑️ Remove Logo
+                    {t.removeLogo}
                   </button>
                 </>
               )}
@@ -543,7 +664,7 @@ const QRGenerator = () => {
               cursor: content.trim() ? 'pointer' : 'not-allowed'
             }}
           >
-            📥 Download QR Code
+            {t.downloadQRCode}
           </button>
         </div>
 
@@ -555,7 +676,7 @@ const QRGenerator = () => {
             marginBottom: isMobile ? '20px' : '30px',
             fontSize: isMobile ? '1.3rem' : '1.5rem'
           }}>
-            Preview
+            {t.preview}
           </h2>
           
           {content.trim() ? (
@@ -593,19 +714,19 @@ const QRGenerator = () => {
                   color: '#333',
                   fontSize: isMobile ? '14px' : '16px'
                 }}>
-                  QR Code Details
+                  {t.qrCodeDetails}
                 </h4>
                 <p style={{ color: '#666', margin: '4px 0' }}>
-                  <strong>Content:</strong> {content.length > (isMobile ? 30 : 50) ? content.substring(0, isMobile ? 30 : 50) + '...' : content}
+                  <strong>{t.detailsContent}:</strong> {content.length > (isMobile ? 30 : 50) ? content.substring(0, isMobile ? 30 : 50) + '...' : content}
                 </p>
                 <p style={{ color: '#666', margin: '4px 0' }}>
-                  <strong>Size:</strong> {size}×{size}px
+                  <strong>{t.detailsSize}:</strong> {size}×{size}px
                 </p>
                 <p style={{ color: '#666', margin: '4px 0' }}>
-                  <strong>Logo:</strong> {logoFile ? `Yes (${logoSize}px, ${logoStyle})` : 'No'}
+                  <strong>{t.detailsLogo}:</strong> {logoFile ? `${t.yes} (${logoSize}px, ${logoStyle === 'circular' ? t.circular : t.square})` : t.no}
                 </p>
                 <p style={{ color: '#666', margin: '4px 0' }}>
-                  <strong>Characters:</strong> {content.length}
+                  <strong>{t.detailsCharacters}:</strong> {content.length}
                 </p>
               </div>
             </div>
@@ -617,10 +738,10 @@ const QRGenerator = () => {
                 color: '#666',
                 fontSize: isMobile ? '1.1rem' : '1.3rem'
               }}>
-                Enter Content
+                {t.enterContent}
               </h3>
               <p style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                Add your content {isMobile ? 'above' : 'to the left'} to generate a QR code
+                {isMobile ? t.enterContentDescMobile : t.enterContentDesc}
               </p>
             </div>
           )}
@@ -630,35 +751,9 @@ const QRGenerator = () => {
       {/* Quick Examples - Desktop Only */}
       {!isMobile && (
         <div style={{ ...cardStyle, marginTop: '30px' }}>
-          <h2 style={{ marginTop: 0, color: '#333', textAlign: 'center', marginBottom: '25px' }}>Quick Examples</h2>
+          <h2 style={{ marginTop: 0, color: '#333', textAlign: 'center', marginBottom: '25px' }}>{t.quickExamples}</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
-            {[
-              { 
-                label: '🌐 Website URL', 
-                example: 'https://your-website.com',
-                description: 'Link to any website'
-              },
-              { 
-                label: '📧 Email Contact', 
-                example: 'mailto:hello@example.com?subject=Hello&body=Hi there!',
-                description: 'Pre-filled email'
-              },
-              { 
-                label: '📞 Phone Number', 
-                example: 'tel:+1234567890',
-                description: 'Direct phone call'
-              },
-              { 
-                label: '📱 SMS Message', 
-                example: 'sms:+1234567890?body=Hello from QR code!',
-                description: 'Pre-filled text message'
-              },
-              { 
-                label: '📶 WiFi Network', 
-                example: 'WIFI:T:WPA;S:YourNetworkName;P:YourPassword;;',
-                description: 'Instant WiFi connection'
-              }
-            ].map((item, index) => (
+            {getDetailedExamples().map((item, index) => (
               <button
                 key={index}
                 onClick={() => setContent(item.example)}
